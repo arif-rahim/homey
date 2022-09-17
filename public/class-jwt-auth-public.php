@@ -17,7 +17,7 @@ use \Firebase\JWT\JWT;
  * enqueue the admin-specific stylesheet and JavaScript.
  *
  * @author     Enrique Chavez <noone@tmeister.net>
- */ 
+ */  
 class Jwt_Auth_Public
 {
     /**
@@ -119,7 +119,7 @@ class Jwt_Auth_Public
             'callback' => array($this, 'social_media_form'),
         ));
          register_rest_route($this->namespace, 'token/user_info', array(
-            'methods' => 'POST',
+            'methods' => 'Get',
             'callback' => array($this, 'get_user_info'),
         ));
          register_rest_route($this->namespace, 'token/settings_API', array(
@@ -152,10 +152,6 @@ class Jwt_Auth_Public
      *
      * @return [type] [description]
      */
-
-
-        
-
     public function generate_token($request)
     {
         $secret_key = defined('JWT_AUTH_SECRET_KEY') ? JWT_AUTH_SECRET_KEY : false;
@@ -218,7 +214,77 @@ class Jwt_Auth_Public
         /** Let the user modify the data before send it back */
         return apply_filters('jwt_auth_token_before_dispatch', $data, $user);
     }
+    public function action_settings_API($request)
+    {
+    
+        $secret_key = defined('JWT_AUTH_SECRET_KEY') ? JWT_AUTH_SECRET_KEY : false;
+        /** First thing, check the secret key if not exist return a error*/
+        if (!$secret_key) {
+            return new WP_Error(
+                'jwt_auth_bad_config',
+                __('JWT is not configurated properly, please contact the admin', 'wp-api-jwt-auth'),
+                array(
+                    'status' => 403,
+                )
+            );
+        } 
+            $color_cheme= $request->get_param('name');
+            $color_code=$request->get_param('value');
 
+            update_option($color_cheme, $color_code);
+            // get an option
+           $option = get_option($color_cheme);
+        /*
+          // array of options
+          $data_r = array('title' => 'hello world!', 1, false );
+          // add a new option
+          add_option('wporg_custom_option', $data_r);
+          // get an option
+          $options_r = get_option('wporg_custom_option');
+          // output the title
+          echo esc_html($options_r['title']);*/
+       
+        if ( ! $option || is_wp_error( $option ) ) {
+            return new WP_Error(
+                'jwt_auth_bad_config',
+                __('<strong>Error</strong>: Could not register you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
+                array(
+                    'status' => 406,
+                )
+            );
+            }
+        
+      return $option;
+    }
+    public function action_get_settings_API($request)
+    {
+    
+        $secret_key = defined('JWT_AUTH_SECRET_KEY') ? JWT_AUTH_SECRET_KEY : false;
+        /** First thing, check the secret key if not exist return a error*/
+        if (!$secret_key) {
+            return new WP_Error(
+                'jwt_auth_bad_config',
+                __('JWT is not configurated properly, please contact the admin', 'wp-api-jwt-auth'),
+                array(
+                    'status' => 403,
+                )
+            );
+        } 
+            $color_cheme= $request->get_param('name');
+            $option = get_option($color_cheme);
+       
+        if ( ! $option || is_wp_error( $option ) ) {
+            return new WP_Error(
+                'jwt_auth_bad_config',
+                __('<strong>Error</strong>: Could not register you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
+                array(
+                    'status' => 406,
+                )
+            );
+            }
+        
+      return $option;
+    }
     function username_exists( $username ) 
           {
               $user = get_user_by( 'login', $username );
@@ -285,7 +351,7 @@ class Jwt_Auth_Public
     }
 
       public function user_up_password($request)
-    { 
+    {
     
         $secret_key = defined('JWT_AUTH_SECRET_KEY') ? JWT_AUTH_SECRET_KEY : false;
             $userdata = array('ID' => $request->get_param('user_id'),'user_pass'=>$request->get_param('password'));
@@ -358,9 +424,9 @@ class Jwt_Auth_Public
             $metas = array(
                 'first_name'=>$request->get_param('first_name'),
                 'last_name'   => $request->get_param('last_name'),
-                'language'   => $request->get_param('language'),
-                'other_language'   => $request->get_param('other_language'),
-                'bio'   => $request->get_param('bio'),
+                'homey_native_language'   => $request->get_param('language'),
+                'homey_other_language'   => $request->get_param('other_language'),
+                'description'   => $request->get_param('bio'),
             );
 
             foreach($metas as $key => $value) {
@@ -411,7 +477,7 @@ class Jwt_Auth_Public
         if ( ! $user || is_wp_error( $user ) ) {
             return new WP_Error(
                 'jwt_auth_bad_config',
-                __('<strong>Error</strong>: Could not register you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
+                __('<strong>Error</strong>: you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
                 array(
                     'status' => 406,
                 )
@@ -451,7 +517,7 @@ class Jwt_Auth_Public
          $user_id =  $request->get_param('user_id');//wp_update_user($userdata);
          if($user_id){ 
             $metas = array(
-                'user_file'   => $request->get_param('user_file')
+                'homey_author_picture_id'   => $request->get_param('user_file')
             );
 
             foreach($metas as $key => $value) {
@@ -460,7 +526,7 @@ class Jwt_Auth_Public
         if ( ! $user_id || is_wp_error( $user_id ) ) {
             return new WP_Error(
                 'jwt_auth_bad_config',
-                __('<strong>Error</strong>: Could not register you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
+                __('<strong>Error</strong>: you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
                 array(
                     'status' => 406,
                 )
@@ -500,13 +566,13 @@ class Jwt_Auth_Public
          $user_id =  $request->get_param('user_id');//wp_update_user($userdata);
          if($user_id){ 
             $metas = array(
-                'street_address'   => $request->get_param('street_address'),
-                'apt_suit'   => $request->get_param('apt_suit'),
-                'city'   => $request->get_param('city'),
-                'state'   => $request->get_param('state'),
-                'zipcode'   => $request->get_param('zipcode'),
+                'homey_street_address'   => $request->get_param('street_address'),
+                'homey_apt_suit'   => $request->get_param('apt_suit'),
+                'homey_city'   => $request->get_param('city'),
+                'homey_state'   => $request->get_param('state'),
+                'homey_zipcode'   => $request->get_param('zipcode'),
                 'neighborhood'   => $request->get_param('neighborhood'),
-                'country'   => $request->get_param('country'),
+                'homey_neighborhood'   => $request->get_param('country'),
             );
 
             foreach($metas as $key => $value) {
@@ -515,7 +581,7 @@ class Jwt_Auth_Public
         if ( ! $user_id || is_wp_error( $user_id ) ) {
             return new WP_Error(
                 'jwt_auth_bad_config',
-                __('<strong>Error</strong>: Could not register you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
+                __('<strong>Error</strong>: you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
                 array(
                     'status' => 406,
                 )
@@ -554,10 +620,10 @@ class Jwt_Auth_Public
          $user_id =  $request->get_param('user_id');//wp_update_user($userdata);
          if($user_id){ 
             $metas = array(
-                'em_contact_name'   => $request->get_param('em_contact_name'),
-                'em_relationship'   => $request->get_param('em_relationship'),
-                'em_email'   => $request->get_param('em_email'),
-                'em_phone'   => $request->get_param('em_phone')
+                'homey_em_contact_name'   => $request->get_param('em_contact_name'),
+                'homey_em_relationship'   => $request->get_param('em_relationship'),
+                'homey_em_email'   => $request->get_param('em_email'),
+                'homey_em_phone'   => $request->get_param('em_phone')
             );
 
             foreach($metas as $key => $value) {
@@ -566,7 +632,7 @@ class Jwt_Auth_Public
         if ( ! $user_id || is_wp_error( $user_id ) ) {
             return new WP_Error(
                 'jwt_auth_bad_config',
-                __('<strong>Error</strong>: Could not register you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
+                __('<strong>Error</strong>: you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
                 array(
                     'status' => 406,
                 )
@@ -605,16 +671,16 @@ class Jwt_Auth_Public
          $user_id =  $request->get_param('user_id');//wp_update_user($userdata);
          if($user_id){ 
             $metas = array(
-                'facebook'   => $request->get_param('facebook'),
-                'twitter'   => $request->get_param('twitter'),
-                'linkedin'   => $request->get_param('linkedin'),
-                'googleplus'   => $request->get_param('googleplus'),
-                'instagram'   => $request->get_param('instagram'),
-                'pinterest'   => $request->get_param('pinterest'),
-                'youtube'   => $request->get_param('youtube'),
-                'vimeo'   => $request->get_param('vimeo'),
-                'airbnb'   => $request->get_param('airbnb'),
-                'trip_advisor'   => $request->get_param('trip_advisor')
+                'homey_author_facebook'   => $request->get_param('facebook'),
+                'homey_author_twitter'   => $request->get_param('twitter'),
+                'homey_author_linkedin'   => $request->get_param('linkedin'),
+                'homey_author_googleplus'   => $request->get_param('googleplus'),
+                'homey_author_instagram'   => $request->get_param('instagram'),
+                'homey_author_pinterest'   => $request->get_param('pinterest'),
+                'homey_author_youtube'   => $request->get_param('youtube'),
+                'homey_author_vimeo'   => $request->get_param('vimeo'),
+                'homey_author_airbnb'   => $request->get_param('airbnb'),
+                'homey_author_trip_advisor'   => $request->get_param('trip_advisor')
             );
 
             foreach($metas as $key => $value) {
@@ -623,7 +689,7 @@ class Jwt_Auth_Public
         if ( ! $user_id || is_wp_error( $user_id ) ) {
             return new WP_Error(
                 'jwt_auth_bad_config',
-                __('<strong>Error</strong>: Could not register you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
+                __('<strong>Error</strong>: you&hellip; please contact the <a href="mailto:%s">site admin</a>!'),
                 array(
                     'status' => 406,
                 )
