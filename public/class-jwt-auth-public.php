@@ -130,12 +130,12 @@ class Jwt_Auth_Public
             'methods' => 'POST',
             'callback' => array($this, 'action_get_settings_API'),
         ));
-         register_rest_route($this->namespace, 'token/homey_half_map', array(
+         register_rest_route($this->namespace, 'search/homey_half_map', array(
             'methods' => 'POST',
             'callback' => array($this, 'homey_half_map_db'),
         ));
 
-         register_rest_route($this->namespace, 'token/homey_listing_search', array(
+         register_rest_route($this->namespace, 'search/homey_listing_search', array(
             'methods' => 'GET',
             'callback' => array($this, 'homey_listing_search_db'),
         ));
