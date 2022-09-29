@@ -135,9 +135,9 @@ class Jwt_Auth_Public
             'callback' => array($this, 'homey_half_map_db'),
         ));
 
-         register_rest_route($this->namespace, 'search/homey_listing_search', array(
+         register_rest_route($this->namespace, 'search/check_availability_price', array(
             'methods' => 'GET',
-            'callback' => array($this, 'homey_listing_search_db'),
+            'callback' => array($this, 'search_availability_db'),
         ));
         
     }
@@ -161,10 +161,223 @@ class Jwt_Auth_Public
      *
      * @return [type] [description]
      */
-    public function homey_listing_search_db($request)
+       public function search_availability_db($request)
     {
+        $output = '';
+        $prefix = 'homey_';
+        $local = homey_get_localization();
+        $allowded_html = array();
+        $booking_proceed = true;
 
-               
+        $listing_id = intval($request->get_param('listing_id'));
+        $check_in_date     =  wp_kses ($request->get_param('check_in_date'), $allowded_html );
+        $check_out_date    =  wp_kses ( $request->get_param('check_out_date'), $allowded_html );
+
+        $booking_type = homey_booking_type_by_id( $listing_id );
+
+        if($booking_type != "per_day_date" && strtotime($check_out_date) <= strtotime($check_in_date)) {
+            return json_encode(
+                array(
+                    'success' => false,
+                    'message' => $local['ins_book_proceed']
+                )
+            );
+            wp_die();
+        }
+
+        $time_difference = abs( strtotime($check_in_date) - strtotime($check_out_date) );
+        $days_count      = $time_difference/86400;
+        $days_count      = intval($days_count);
+        if($booking_type == "per_day_date"){ $days_count += 1; }
+
+        if( $booking_type == 'per_week' ) {
+
+            $min_book_weeks = get_post_meta($listing_id, 'homey_min_book_weeks', true);
+            $max_book_weeks = get_post_meta($listing_id, 'homey_max_book_weeks', true);
+
+            $total_weeks_count = $days_count / 7;
+
+            if($total_weeks_count < $min_book_weeks) {
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['min_book_weeks_error'].' '.$min_book_weeks
+                    )
+                );
+                wp_die();
+            }
+
+            if(($total_weeks_count > $max_book_weeks) && !empty($max_book_weeks)) {
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['max_book_weeks_error'].' '.$max_book_weeks
+                    )
+                );
+                wp_die();
+            }
+
+        } else if( $booking_type == 'per_month' ) {
+
+            $min_book_months = get_post_meta($listing_id, 'homey_min_book_months', true);
+            $max_book_months = get_post_meta($listing_id, 'homey_max_book_months', true);
+
+            $total_months_count = $days_count / 30;
+
+            if($total_months_count < $min_book_months) {
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['min_book_months_error'].' '.$min_book_months
+                    )
+                );
+                wp_die();
+            }
+
+            if(($total_months_count > $max_book_months) && !empty($max_book_months)) {
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['max_book_months_error'].' '.$max_book_months
+                    )
+                );
+                wp_die();
+            }
+
+        } else if( $booking_type == 'per_day_date' ) { // per day
+            $min_book_days = get_post_meta($listing_id, 'homey_min_book_days', true);
+            $max_book_days = get_post_meta($listing_id, 'homey_max_book_days', true);
+
+            if($days_count < $min_book_days) {
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['min_book_day_dates_error'].' '.$min_book_days
+                    )
+                );
+                wp_die();
+            }
+
+            if(($days_count > $max_book_days) && !empty($max_book_days)) {
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['max_book_day_dates_error'].' '.$max_book_days
+                    )
+                );
+                wp_die();
+            }
+        } else { // Per Night 
+
+            $min_book_days = get_post_meta($listing_id, 'homey_min_book_days', true);
+            $max_book_days = get_post_meta($listing_id, 'homey_max_book_days', true);
+
+            if($days_count < $min_book_days) {
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['min_book_days_error'].' '.$min_book_days
+                    )
+                );
+                wp_die();
+            }
+
+            if(($days_count > $max_book_days) && !empty($max_book_days)) {
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['max_book_days_error'].' '.$max_book_days
+                    )
+                );
+                wp_die();
+            }
+        }
+
+        $reservation_booked_array = get_post_meta($listing_id, 'reservation_dates', true);
+        if(empty($reservation_booked_array)) {
+            $reservation_booked_array = homey_get_booked_days($listing_id);
+        }
+
+        $reservation_pending_array = get_post_meta($listing_id, 'reservation_pending_dates', true);
+        if(empty($reservation_pending_array)) {
+            $reservation_pending_array = homey_get_booking_pending_days($listing_id);
+        }
+
+        $reservation_unavailable_array = get_post_meta($listing_id, 'reservation_unavailable', true);
+        if(empty($reservation_unavailable_array)) {
+            $reservation_unavailable_array = array();
+        }
+
+        $check_in      = new DateTime($check_in_date);
+        $check_in_unix = $check_in->getTimestamp();
+
+        $check_out     = new DateTime($check_out_date);
+
+        if($booking_type != "per_day_date"){
+            $check_out->modify('yesterday');
+        }
+
+        $check_out_unix = $check_out->getTimestamp();
+
+        while ($check_in_unix <= $check_out_unix) {
+
+            if( array_key_exists($check_in_unix, $reservation_booked_array)  || array_key_exists($check_in_unix, $reservation_pending_array) || array_key_exists($check_in_unix, $reservation_unavailable_array) ) {
+
+                return json_encode(
+                    array(
+                        'success' => false,
+                        'message' => $local['dates_not_available']
+                    )
+                );
+                wp_die();
+
+            }
+            $check_in->modify('tomorrow');
+            $check_in_unix =   $check_in->getTimestamp();
+        }
+        $reservation_id = array(
+            "listing_id" =>$request->get_param('listing_id'),
+            "check_in_date" =>$request->get_param('check_in_date'),
+            "check_out_date" =>$request->get_param('check_out_date'),
+            "guests" =>$request->get_param('guests') ? $request->get_param('guests') :  '0',
+            "extra_options" =>$request->get_param('extra_options') ? $request->get_param('extra_options') :  '',
+          );
+        
+        if(empty($reservation_id)) {
+            return;
+        }
+        $extra_options = intval( $reservation_id['extra_options']);
+
+        $listing_id     = intval($reservation_id['listing_id']);
+        $check_in_date  = wp_kses ( $reservation_id['check_in_date'], $allowded_html );
+        $check_out_date = wp_kses ( $reservation_id['check_out_date'], $allowded_html );
+        $guests         = intval($reservation_id['guests']);
+
+        $prices_array = homey_get_prices($check_in_date, $check_out_date, $listing_id, $guests, $extra_options);
+        $with_weekend_label = $local['with_weekend_label'];
+        if($no_of_days > 1) {
+            $night_label = homey_option('glc_day_nights_label');
+        } else {
+            $night_label = homey_option('glc_day_night_label');
+        }
+
+        if($additional_guests > 1) {
+            $add_guest_label = $local['cs_add_guests'];
+        } else {
+            $add_guest_label = $local['cs_add_guest'];
+        }
+        $array1= $prices_array;
+        $array2= json_encode( array( 'success' => true, 'message' => $local['dates_available']));
+        $d = array(
+            "booking_cost" => $array1,
+            "booking_check" => $array2
+          );
+        $result = $d;
+        return $result;
+         
+         
+        wp_die();
+    
                        
     }
     public function homey_half_map_db($request)
